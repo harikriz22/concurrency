@@ -1,0 +1,150 @@
+I/O-bound vs CPU-bound
+
+
+the most important concept in concurrency.
+
+
+
+you'll immediately know whether to use Threading, Multiprocessing, or Asyncio.
+
+Think Like a Restaurant 
+
+
+There are two kinds of work.
+
+1. Waiting Work (I/O)
+Waiting for water to boil
+Waiting for the oven
+Waiting for the waiter
+Waiting for ingredients
+
+You're not actually doing work.
+You're just waiting.
+
+
+2. Cooking Work (CPU)
+Chopping vegetables
+Mixing ingredients
+Kneading dough
+Frying food
+
+Here you're constantly working.
+
+Computers are exactly the same.
+
+***What is I/O?**
+
+I/O means
+
+Input / Output
+
+Whenever your program communicates with something outside the CPU.
+
+Examples
+
+CPU
+ |
+ |
+Reading File
+Writing File
+Downloading Data
+Database Query
+Printer
+Keyboard
+Mouse
+Internet
+
+The CPU asks another device to do something.
+
+Then...
+
+It waits.
+
+eg:
+
+with open("data.txt") as f:
+    data = f.read()
+
+
+Python
+
+↓
+
+Operating System
+
+↓
+
+Hard Disk
+
+↓
+
+Read File
+
+↓
+
+Return Data
+
+.
+
+During this time
+
+Python is mostly waiting.
+
+The CPU isn't doing much.
+
+This is an I/O operation.
+
+
+Characteristics of I/O Operations
+
+✔ CPU usage is low
+
+✔ Waiting time is high
+
+✔ External devices are involved
+
+
+
+CPU-Bound Task
+______________
+
+for i in range(100000000):
+    x = i * i
+
+
+CPU
+
+↓
+
+Multiply
+
+↓
+
+Multiply
+
+↓
+
+Multiply
+
+↓
+
+Multiply
+
+↓
+
+Multiply
+
+The CPU never waits.
+
+It is busy every microsecond.
+
+This is CPU-bound.
+
+
+Characteristics of CPU-bound Tasks
+
+✔ High CPU usage
+
+✔ Very little waiting
+
+✔ Millions/Billions of calculations

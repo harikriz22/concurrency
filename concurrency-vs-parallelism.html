@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concurrency vs Parallelism</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#14171A;
+    --bg-alt:#1B1F23;
+    --surface:#20252A;
+    --surface-2:#262C32;
+    --ink:#EDEDE9;
+    --ink-dim:#9BA3AA;
+    --ink-faint:#5D6469;
+    --flame:#FF6B35;
+    --flame-dim:#7A3A22;
+    --cool:#4ECDC4;
+    --cool-dim:#245550;
+    --line:rgba(237,237,233,0.10);
+    --line-strong:rgba(237,237,233,0.18);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:
+      radial-gradient(1200px 600px at 15% -10%, rgba(255,107,53,0.07), transparent 60%),
+      radial-gradient(1000px 500px at 90% 110%, rgba(78,205,196,0.06), transparent 60%),
+      var(--bg);
+    color:var(--ink);
+    font-family:'Inter', sans-serif;
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  .deck{
+    position:relative;
+    width:100vw;
+    height:100vh;
+    display:flex;
+    flex-direction:column;
+  }
+
+  /* ---------- top rail ---------- */
+  .rail{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:20px clamp(20px,4vw,56px) 0;
+    flex-shrink:0;
+  }
+  .rail-left{
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+    font-family:'Space Mono', monospace;
+    font-size:12px;
+    letter-spacing:0.12em;
+    color:var(--ink-faint);
+    text-transform:uppercase;
+  }
+  .rail-left b{
+    color:var(--flame);
+    font-weight:700;
+  }
+  .rail-title{
+    font-family:'Space Mono', monospace;
+    font-size:12px;
+    letter-spacing:0.12em;
+    color:var(--ink-faint);
+    text-transform:uppercase;
+  }
+  .rail-dots{
+    display:flex;
+    gap:7px;
+  }
+  .dot{
+    width:7px; height:7px;
+    border-radius:50%;
+    background:var(--ink-faint);
+    opacity:0.4;
+    cursor:pointer;
+    transition:all .25s ease;
+  }
+  .dot.active{
+    opacity:1;
+    background:var(--flame);
+    transform:scale(1.35);
+  }
+
+  /* progress line */
+  .progress-track{
+    height:2px;
+    width:100%;
+    background:var(--line);
+    margin-top:16px;
+    flex-shrink:0;
+  }
+  .progress-fill{
+    height:100%;
+    background:linear-gradient(90deg, var(--flame), var(--cool));
+    width:0%;
+    transition:width .5s cubic-bezier(.65,0,.35,1);
+  }
+
+  /* ---------- stage ---------- */
+  .stage{
+    position:relative;
+    flex:1;
+    overflow:hidden;
+  }
+  .slide{
+    position:absolute;
+    inset:0;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    padding:0 clamp(24px,7vw,110px);
+    opacity:0;
+    transform:translateX(40px);
+    pointer-events:none;
+    transition:opacity .5s ease, transform .5s cubic-bezier(.65,0,.35,1);
+  }
+  .slide.active{
+    opacity:1;
+    transform:translateX(0);
+    pointer-events:auto;
+  }
+  .slide.prev{
+    transform:translateX(-40px);
+  }
+
+  .eyebrow{
+    font-family:'Space Mono', monospace;
+    font-size:12px;
+    letter-spacing:0.18em;
+    text-transform:uppercase;
+    color:var(--flame);
+    margin-bottom:14px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .eyebrow::before{
+    content:'';
+    width:22px; height:1px;
+    background:var(--flame);
+  }
+  .eyebrow.cool{color:var(--cool);}
+  .eyebrow.cool::before{background:var(--cool);}
+
+  h1.big{
+    font-family:'Space Mono', monospace;
+    font-weight:700;
+    font-size:clamp(34px,5.4vw,72px);
+    line-height:1.05;
+    letter-spacing:-0.01em;
+    max-width:16ch;
+  }
+  h2.slide-title{
+    font-family:'Space Mono', monospace;
+    font-weight:700;
+    font-size:clamp(26px,3.6vw,46px);
+    line-height:1.1;
+    margin-bottom:18px;
+    max-width:18ch;
+  }
+  .lede{
+    font-size:clamp(15px,1.5vw,19px);
+    color:var(--ink-dim);
+    max-width:56ch;
+    line-height:1.65;
+    margin-bottom:6px;
+  }
+  .body-text{
+    font-size:clamp(14px,1.25vw,16.5px);
+    color:var(--ink-dim);
+    line-height:1.7;
+    max-width:60ch;
+  }
+
+  /* ---------- cover ---------- */
+  .cover-wrap{
+    display:flex;
+    align-items:center;
+    gap:clamp(30px,6vw,80px);
+  }
+  .cover-mark{
+    flex-shrink:0;
+    width:150px; height:150px;
+    position:relative;
+  }
+  .flame-shape{
+    position:absolute;
+    width:64px; height:88px;
+    left:20px; top:20px;
+    background:radial-gradient(circle at 50% 30%, #FFB088, var(--flame) 55%, var(--flame-dim) 100%);
+    border-radius:50% 50% 50% 50% / 60% 60% 40% 40%;
+    filter:blur(0.2px);
+    animation: flicker 2.2s ease-in-out infinite;
+    transform-origin:bottom center;
+  }
+  .core-dot{
+    position:absolute;
+    width:26px; height:26px;
+    border-radius:50%;
+    background:var(--cool);
+    box-shadow:0 0 22px rgba(78,205,196,0.55);
+  }
+  .core-dot.c1{right:14px; top:18px; animation:pulse 1.8s ease-in-out infinite;}
+  .core-dot.c2{right:0px; top:60px; animation:pulse 1.8s ease-in-out infinite .3s;}
+  .core-dot.c3{right:24px; top:104px; animation:pulse 1.8s ease-in-out infinite .6s;}
+  @keyframes flicker{
+    0%,100%{transform:scaleY(1) scaleX(1); }
+    50%{transform:scaleY(1.08) scaleX(0.94);}
+  }
+  @keyframes pulse{
+    0%,100%{transform:scale(1); opacity:0.75;}
+    50%{transform:scale(1.25); opacity:1;}
+  }
+  .cover-sub{
+    font-size:clamp(15px,1.6vw,20px);
+    color:var(--ink-dim);
+    max-width:44ch;
+    margin-top:18px;
+    line-height:1.6;
+  }
+  .cover-hint{
+    margin-top:34px;
+    font-family:'Space Mono', monospace;
+    font-size:12px;
+    letter-spacing:0.1em;
+    color:var(--ink-faint);
+    text-transform:uppercase;
+  }
+
+  /* ---------- definition cards ---------- */
+  .def-grid{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:14px;
+    max-width:640px;
+    margin-top:10px;
+  }
+  .def-point{
+    display:flex;
+    gap:14px;
+    align-items:flex-start;
+    padding:16px 18px;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:10px;
+  }
+  .def-point .idx{
+    font-family:'Space Mono', monospace;
+    font-size:12px;
+    color:var(--flame);
+    padding-top:2px;
+  }
+  .def-point.cool .idx{color:var(--cool);}
+  .def-point p{color:var(--ink); font-size:15px; line-height:1.6;}
+
+  /* ---------- kitchen simulation ---------- */
+  .kitchen-layout{
+    display:grid;
+    grid-template-columns:1.05fr 1fr;
+    gap:clamp(24px,4vw,60px);
+    align-items:center;
+  }
+  .sim-panel{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:26px 26px 22px;
+  }
+  .sim-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:20px;
+  }
+  .sim-header .label{
+    font-family:'Space Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--ink-faint);
+  }
+  .sim-btn{
+    font-family:'Space Mono', monospace;
+    font-size:12px;
+    letter-spacing:0.06em;
+    background:var(--flame);
+    color:#1A1A1A;
+    border:none;
+    padding:9px 16px;
+    border-radius:7px;
+    cursor:pointer;
+    font-weight:700;
+    transition:transform .15s ease, filter .15s ease;
+  }
+  .sim-btn:hover{filter:brightness(1.08); transform:translateY(-1px);}
+  .sim-btn.cool{background:var(--cool);}
+
+  .ticket{
+    display:grid;
+    grid-template-columns:70px 1fr 44px;
+    align-items:center;
+    gap:14px;
+    padding:13px 6px;
+    border-bottom:1px dashed var(--line-strong);
+  }
+  .ticket:last-child{border-bottom:none;}
+  .ticket .tname{
+    font-family:'Space Mono', monospace;
+    font-size:13px;
+    color:var(--ink);
+  }
+  .ticket .tbar-track{
+    height:8px;
+    background:var(--bg-alt);
+    border-radius:5px;
+    overflow:hidden;
+    position:relative;
+  }
+  .ticket .tbar-fill{
+    height:100%;
+    width:0%;
+    background:var(--flame);
+    border-radius:5px;
+    transition:width .35s linear;
+  }
+  .ticket.cool .tbar-fill{background:var(--cool);}
+  .ticket .tstate{
+    font-family:'Space Mono', monospace;
+    font-size:11px;
+    text-align:right;
+    color:var(--ink-faint);
+  }
+  .ticket.active .tname{color:var(--flame);}
+  .ticket.active.cool .tname{color:var(--cool);}
+  .ticket .flicker-dot{
+    display:inline-block;
+    width:6px;height:6px;
+    border-radius:50%;
+    margin-right:6px;
+    background:var(--ink-faint);
+  }
+  .ticket.active .flicker-dot{background:var(--flame); box-shadow:0 0 8px var(--flame);}
+  .ticket.active.cool .flicker-dot{background:var(--cool); box-shadow:0 0 8px var(--cool);}
+
+  .worker-row{
+    display:flex;
+    gap:10px;
+    margin-top:18px;
+  }
+  .worker{
+    flex:1;
+    text-align:center;
+    padding:10px 4px;
+    border-radius:8px;
+    background:var(--bg-alt);
+    border:1px solid var(--line);
+    font-family:'Space Mono', monospace;
+    font-size:11px;
+    color:var(--ink-faint);
+    transition:all .3s ease;
+  }
+  .worker.on{
+    background:rgba(255,107,53,0.12);
+    border-color:var(--flame);
+    color:var(--flame);
+  }
+  .worker.on.cool{
+    background:rgba(78,205,196,0.12);
+    border-color:var(--cool);
+    color:var(--cool);
+  }
+
+  .kitchen-side{
+    max-width:440px;
+  }
+  .fact-line{
+    display:flex;
+    gap:12px;
+    padding:10px 0;
+    border-bottom:1px solid var(--line);
+    font-size:14.5px;
+    color:var(--ink-dim);
+    line-height:1.55;
+  }
+  .fact-line:last-child{border-bottom:none;}
+  .fact-line .chk{color:var(--flame); flex-shrink:0;}
+  .fact-line .chk.cool{color:var(--cool);}
+
+  /* ---------- two column ---------- */
+  .two-col{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:22px;
+    max-width:920px;
+    margin-top:8px;
+  }
+  .col-card{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:24px 22px;
+  }
+  .col-card h3{
+    font-family:'Space Mono', monospace;
+    font-size:16px;
+    margin-bottom:14px;
+    color:var(--flame);
+  }
+  .col-card.cool h3{color:var(--cool);}
+  .col-card ul{list-style:none;}
+  .col-card li{
+    font-size:14.5px;
+    color:var(--ink-dim);
+    padding:7px 0 7px 20px;
+    position:relative;
+    border-bottom:1px solid var(--line);
+  }
+  .col-card li:last-child{border-bottom:none;}
+  .col-card li::before{
+    content:'—';
+    position:absolute; left:0; color:var(--ink-faint);
+  }
+
+  /* ---------- tool cards ---------- */
+  .tool-grid{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:18px;
+    max-width:980px;
+    margin-top:10px;
+  }
+  .tool-card{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:22px 20px;
+    position:relative;
+    overflow:hidden;
+  }
+  .tool-card .tnum{
+    font-family:'Space Mono', monospace;
+    font-size:11px;
+    color:var(--ink-faint);
+    margin-bottom:10px;
+  }
+  .tool-card h3{
+    font-family:'Space Mono', monospace;
+    font-size:18px;
+    margin-bottom:10px;
+  }
+  .tool-card p{
+    font-size:13.5px;
+    color:var(--ink-dim);
+    line-height:1.6;
+  }
+  .tool-card.t1{border-top:2px solid var(--flame);}
+  .tool-card.t2{border-top:2px solid #FFB088;}
+  .tool-card.t3{border-top:2px solid var(--cool);}
+
+  /* ---------- process/thread diagrams ---------- */
+  .proc-wrap{
+    display:flex;
+    gap:28px;
+    align-items:center;
+    flex-wrap:wrap;
+  }
+  .proc-box{
+    background:var(--surface);
+    border:1.5px solid var(--line-strong);
+    border-radius:14px;
+    padding:20px;
+    width:190px;
+  }
+  .proc-box .ptitle{
+    font-family:'Space Mono', monospace;
+    font-size:12px;
+    color:var(--ink);
+    margin-bottom:12px;
+    text-align:center;
+  }
+  .mem-block{
+    background:var(--bg-alt);
+    border:1px dashed var(--line-strong);
+    border-radius:8px;
+    padding:10px;
+    font-family:'Space Mono', monospace;
+    font-size:10.5px;
+    color:var(--ink-faint);
+    text-align:center;
+  }
+  .no-access{
+    font-family:'Space Mono', monospace;
+    font-size:11px;
+    color:var(--ink-faint);
+    text-align:center;
+  }
+
+  .thread-box{
+    background:var(--surface);
+    border:1.5px solid var(--cool-dim);
+    border-radius:14px;
+    padding:20px;
+    max-width:420px;
+  }
+  .thread-box .ptitle{color:var(--cool);}
+  .thread-row{
+    display:flex;
+    gap:8px;
+    margin-bottom:14px;
+  }
+  .thread-chip{
+    flex:1;
+    background:rgba(78,205,196,0.1);
+    border:1px solid var(--cool-dim);
+    border-radius:7px;
+    padding:8px 4px;
+    text-align:center;
+    font-family:'Space Mono', monospace;
+    font-size:10.5px;
+    color:var(--cool);
+  }
+  .shared-mem{
+    background:var(--bg-alt);
+    border:1px solid var(--cool-dim);
+    border-radius:8px;
+    padding:12px;
+    text-align:center;
+    font-family:'Space Mono', monospace;
+    font-size:10.5px;
+    color:var(--ink-dim);
+  }
+  .shared-mem b{color:var(--cool);}
+
+  /* ---------- closing ---------- */
+  .close-row{
+    display:flex;
+    align-items:center;
+    gap:16px;
+    margin-top:10px;
+  }
+  .single-chip{
+    display:flex; align-items:center; gap:10px;
+    background:var(--surface);
+    border:1px solid var(--line-strong);
+    border-radius:10px;
+    padding:12px 18px;
+    font-family:'Space Mono', monospace;
+    font-size:13px;
+  }
+  .single-chip .sq{width:9px;height:9px;background:var(--flame);border-radius:2px;}
+
+  /* ---------- nav controls ---------- */
+  .nav-zone{
+    position:absolute;
+    top:0; bottom:0;
+    width:14%;
+    z-index:5;
+    cursor:pointer;
+  }
+  .nav-zone.left{left:0;}
+  .nav-zone.right{right:0;}
+
+  .footer-nav{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:16px clamp(20px,4vw,56px) 26px;
+    flex-shrink:0;
+  }
+  .nav-btn{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    background:transparent;
+    border:1px solid var(--line-strong);
+    color:var(--ink-dim);
+    font-family:'Space Mono', monospace;
+    font-size:12px;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    padding:10px 18px;
+    border-radius:8px;
+    cursor:pointer;
+    transition:all .2s ease;
+  }
+  .nav-btn:hover{
+    border-color:var(--flame);
+    color:var(--ink);
+  }
+  .nav-btn:disabled{
+    opacity:0.3;
+    cursor:default;
+  }
+  .nav-btn:disabled:hover{border-color:var(--line-strong); color:var(--ink-dim);}
+
+  @media (max-width: 760px){
+    .kitchen-layout{grid-template-columns:1fr;}
+    .two-col{grid-template-columns:1fr;}
+    .tool-grid{grid-template-columns:1fr;}
+    .cover-wrap{flex-direction:column; text-align:left;}
+    .proc-wrap{flex-direction:column; align-items:stretch;}
+    .thread-box{max-width:100%;}
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none !important; transition:none !important;}
+  }
+</style>
+</head>
+<body>
+<div class="deck">
+
+  <div class="rail">
+    <div class="rail-left">ORDER <b id="railNum">01</b>/<span id="railTotal">11</span></div>
+    <div class="rail-title">Concurrency &amp; Parallelism</div>
+    <div class="rail-dots" id="dots"></div>
+  </div>
+  <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+
+  <div class="stage" id="stage">
+    <div class="nav-zone left" id="zoneLeft"></div>
+    <div class="nav-zone right" id="zoneRight"></div>
+
+    <!-- 1 : COVER -->
+    <section class="slide">
+      <div class="cover-wrap">
+        <div class="cover-mark">
+          <div class="flame-shape"></div>
+          <div class="core-dot c1"></div>
+          <div class="core-dot c2"></div>
+          <div class="core-dot c3"></div>
+        </div>
+        <div>
+          <div class="eyebrow">The Kitchen Ticket Series</div>
+          <h1 class="big">Concurrency<br>vs Parallelism</h1>
+          <p class="cover-sub">Two ideas that get confused constantly — one is about handling many things at once, the other is about doing many things at once. Same words, different physics.</p>
+          <div class="cover-hint">→ Use the arrow keys, click either edge, or tap a dot to move through</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2 : CONCURRENCY DEF -->
+    <section class="slide">
+      <div class="eyebrow">01 — Definition</div>
+      <h2 class="slide-title">Concurrency</h2>
+      <p class="lede">Managing multiple tasks during the same period of time.</p>
+      <div class="def-grid">
+        <div class="def-point">
+          <span class="idx">→</span>
+          <p>The tasks appear to run together because the CPU switches between them quickly.</p>
+        </div>
+        <div class="def-point">
+          <span class="idx">→</span>
+          <p>Nothing is happening at the exact same instant — progress is interleaved, not simultaneous.</p>
+        </div>
+        <div class="def-point">
+          <span class="idx">→</span>
+          <p>One worker, many things in flight. It's about <em style="color:var(--ink);font-style:normal;">structure</em>, not speed.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3 : PARALLELISM DEF -->
+    <section class="slide">
+      <div class="eyebrow cool">02 — Definition</div>
+      <h2 class="slide-title">Parallelism</h2>
+      <p class="lede">Running multiple tasks at exactly the same time.</p>
+      <div class="def-grid">
+        <div class="def-point cool">
+          <span class="idx">→</span>
+          <p>This requires multiple CPU cores — or multiple processors — actually working simultaneously.</p>
+        </div>
+        <div class="def-point cool">
+          <span class="idx">→</span>
+          <p>Every worker is busy at the same instant. It's about <em style="color:var(--ink);font-style:normal;">raw throughput</em>.</p>
+        </div>
+        <div class="def-point cool">
+          <span class="idx">→</span>
+          <p>Parallelism is one way to <em style="color:var(--ink);font-style:normal;">achieve</em> concurrency — but concurrency doesn't require it.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4 : ONE CHEF SIM -->
+    <section class="slide">
+      <div class="eyebrow">03 — In the Kitchen</div>
+      <h2 class="slide-title">One Chef, Three Orders</h2>
+      <div class="kitchen-layout">
+        <div class="sim-panel">
+          <div class="sim-header">
+            <span class="label">Ticket Rail — Concurrency</span>
+            <button class="sim-btn" id="btnConc">Run Service</button>
+          </div>
+          <div class="ticket active" data-i="0">
+            <span class="tname"><span class="flicker-dot"></span>Pasta</span>
+            <div class="tbar-track"><div class="tbar-fill" id="cFill0"></div></div>
+            <span class="tstate" id="cState0">waiting</span>
+          </div>
+          <div class="ticket" data-i="1">
+            <span class="tname"><span class="flicker-dot"></span>Burger</span>
+            <div class="tbar-track"><div class="tbar-fill" id="cFill1"></div></div>
+            <span class="tstate" id="cState1">waiting</span>
+          </div>
+          <div class="ticket" data-i="2">
+            <span class="tname"><span class="flicker-dot"></span>Pizza</span>
+            <div class="tbar-track"><div class="tbar-fill" id="cFill2"></div></div>
+            <span class="tstate" id="cState2">waiting</span>
+          </div>
+          <div class="worker-row"><div class="worker on" id="chefW">CHEF · 1 STATION AT A TIME</div></div>
+        </div>
+        <div class="kitchen-side">
+          <p class="body-text" style="margin-bottom:14px;">There is only one chef. Three customers order pasta, pizza, and burger.</p>
+          <div class="fact-line"><span class="chk">01</span>The chef starts the pasta boiling, then walks away to start the burger.</div>
+          <div class="fact-line"><span class="chk">02</span>While the burger grills, the chef preps the pizza dough.</div>
+          <div class="fact-line"><span class="chk">03</span>Only one chef is ever working at any instant — nothing is truly simultaneous.</div>
+          <div class="fact-line"><span class="chk">04</span>But all three dishes make progress. That's concurrency.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5 : THREE CHEFS SIM -->
+    <section class="slide">
+      <div class="eyebrow cool">04 — In the Kitchen</div>
+      <h2 class="slide-title">Three Chefs, Three Orders</h2>
+      <div class="kitchen-layout">
+        <div class="sim-panel">
+          <div class="sim-header">
+            <span class="label">Ticket Rail — Parallelism</span>
+            <button class="sim-btn cool" id="btnPar">Run Service</button>
+          </div>
+          <div class="ticket cool active" data-i="0">
+            <span class="tname"><span class="flicker-dot"></span>Pasta — Chef 1</span>
+            <div class="tbar-track"><div class="tbar-fill" id="pFill0"></div></div>
+            <span class="tstate" id="pState0">waiting</span>
+          </div>
+          <div class="ticket cool active" data-i="1">
+            <span class="tname"><span class="flicker-dot"></span>Pizza — Chef 2</span>
+            <div class="tbar-track"><div class="tbar-fill" id="pFill1"></div></div>
+            <span class="tstate" id="pState1">waiting</span>
+          </div>
+          <div class="ticket cool active" data-i="2">
+            <span class="tname"><span class="flicker-dot"></span>Burger — Chef 3</span>
+            <div class="tbar-track"><div class="tbar-fill" id="pFill2"></div></div>
+            <span class="tstate" id="pState2">waiting</span>
+          </div>
+          <div class="worker-row">
+            <div class="worker on cool">CHEF 1</div>
+            <div class="worker on cool">CHEF 2</div>
+            <div class="worker on cool">CHEF 3</div>
+          </div>
+        </div>
+        <div class="kitchen-side">
+          <p class="body-text" style="margin-bottom:14px;">Now imagine three chefs, each with their own station.</p>
+          <div class="fact-line"><span class="chk cool">01</span>Chef 1 cooks the pasta. Chef 2 makes the pizza. Chef 3 grills the burger.</div>
+          <div class="fact-line"><span class="chk cool">02</span>All three dishes cook at the exact same moment.</div>
+          <div class="fact-line"><span class="chk cool">03</span>This needs three independent workers — three CPU cores. That's parallelism.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6 : CONCURRENCY RECAP -->
+    <section class="slide">
+      <div class="eyebrow">05 — Recap</div>
+      <h2 class="slide-title">Concurrency: The Habit of Switching</h2>
+      <p class="lede" style="margin-bottom:24px;">Concurrency means multiple tasks make progress during the same time period — by switching, not by simultaneity.</p>
+      <div class="def-grid" style="max-width:680px;">
+        <div class="def-point"><span class="idx">01</span><p>The chef starts cooking Order 1. While it's boiling, instead of standing and watching the pot, he starts Order 2.</p></div>
+        <div class="def-point"><span class="idx">02</span><p>While Order 2 bakes, he cuts vegetables for Order 3 — constantly switching between tasks.</p></div>
+        <div class="def-point"><span class="idx">03</span><p>Even something as ordinary as making tea works this way: kettle on, then you don't stand there — you get the cup and teabag ready while it heats.</p></div>
+      </div>
+    </section>
+
+    <!-- 7 : WHY CONCURRENCY -->
+    <section class="slide">
+      <div class="eyebrow">06 — Motivation</div>
+      <h2 class="slide-title">Why We Want Concurrency</h2>
+      <p class="lede" style="margin-bottom:6px;">Programming has the same problem as the kitchen. Some tasks spend most of their time waiting; others spend all their time calculating.</p>
+      <div class="two-col">
+        <div class="col-card">
+          <h3>I/O-bound — mostly waiting</h3>
+          <ul>
+            <li>Downloading files</li>
+            <li>Reading from a database</li>
+            <li>Network requests</li>
+            <li>Waiting on user input</li>
+          </ul>
+        </div>
+        <div class="col-card cool">
+          <h3>CPU-bound — mostly calculating</h3>
+          <ul>
+            <li>Image processing</li>
+            <li>AI / model inference</li>
+            <li>Encryption</li>
+            <li>Sorting huge datasets</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8 : PYTHON TOOLS -->
+    <section class="slide">
+      <div class="eyebrow">07 — Python's Toolbox</div>
+      <h2 class="slide-title">Different Tools for Different Waits</h2>
+      <p class="lede" style="margin-bottom:6px;">Python gives different tools for different situations — pick based on whether a task is waiting or calculating.</p>
+      <div class="tool-grid">
+        <div class="tool-card t1">
+          <div class="tnum">01</div>
+          <h3>Threading</h3>
+          <p>Multiple threads inside one process, switching quickly. Great for I/O-bound waiting.</p>
+        </div>
+        <div class="tool-card t2">
+          <div class="tnum">02</div>
+          <h3>Multiprocessing</h3>
+          <p>Multiple independent processes, each on its own core. True parallelism for CPU-bound work.</p>
+        </div>
+        <div class="tool-card t3">
+          <div class="tnum">03</div>
+          <h3>Asyncio</h3>
+          <p>A single thread that cooperatively switches between waiting tasks — concurrency without extra workers.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9 : PROCESS -->
+    <section class="slide">
+      <div class="eyebrow">08 — Building Blocks</div>
+      <h2 class="slide-title">Process vs Thread — the Process</h2>
+      <p class="lede" style="margin-bottom:20px;">A process is an independent running program — e.g. VS Code, or a Python script. Each is its own process with separate memory, variables, and resources.</p>
+      <div class="proc-wrap">
+        <div class="proc-box">
+          <div class="ptitle">Chrome Process</div>
+          <div class="mem-block">RAM<br>Tabs · Cookies · Extensions</div>
+        </div>
+        <div class="no-access">✕ cannot directly<br>access memory</div>
+        <div class="proc-box">
+          <div class="ptitle">VS Code Process</div>
+          <div class="mem-block">RAM<br>Editor state · Buffers</div>
+        </div>
+      </div>
+      <p class="body-text" style="margin-top:20px; max-width:640px;">Another process cannot directly reach into this memory — each one is sealed off from the others.</p>
+    </section>
+
+    <!-- 10 : THREAD -->
+    <section class="slide">
+      <div class="eyebrow cool">08 — Building Blocks</div>
+      <h2 class="slide-title">Process vs Thread — the Thread</h2>
+      <p class="lede" style="margin-bottom:20px;">A thread is a worker inside a process. A single Chrome process can run many threads at once.</p>
+      <div class="thread-box">
+        <div class="ptitle">Chrome Process</div>
+        <div class="thread-row">
+          <div class="thread-chip">Thread 1</div>
+          <div class="thread-chip">Thread 2</div>
+          <div class="thread-chip">Thread 3</div>
+          <div class="thread-chip">Thread 4</div>
+        </div>
+        <div class="shared-mem"><b>Shared:</b> variables · memory · files · objects</div>
+      </div>
+      <p class="body-text" style="margin-top:20px; max-width:640px;">All threads inside a process share the same variables, memory, files, and objects. This sharing is both powerful and dangerous.</p>
+    </section>
+
+    <!-- 11 : CLOSING -->
+    <section class="slide">
+      <div class="eyebrow">09 — Baseline</div>
+      <h2 class="slide-title">Synchronous Execution</h2>
+      <p class="lede" style="margin-bottom:20px;">Before any of this — concurrency, parallelism, threads, processes — there's the default: one process, one thread, one task at a time, start to finish.</p>
+      <div class="close-row">
+        <div class="single-chip"><span class="sq"></span>ONE PROCESS</div>
+        <div class="single-chip"><span class="sq" style="background:var(--cool);"></span>ONE THREAD</div>
+      </div>
+      <p class="body-text" style="margin-top:26px; max-width:640px;">Everything you just walked through — the switching chef, the three parallel chefs, threading, multiprocessing, asyncio — exists to move past this single-file baseline.</p>
+    </section>
+
+  </div>
+
+  <div class="footer-nav">
+    <button class="nav-btn" id="btnPrev">← Prev</button>
+    <button class="nav-btn" id="btnNext">Next →</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+  const dotsWrap = document.getElementById('dots');
+  const railNum = document.getElementById('railNum');
+  const railTotal = document.getElementById('railTotal');
+  const progressFill = document.getElementById('progressFill');
+  const btnPrev = document.getElementById('btnPrev');
+  const btnNext = document.getElementById('btnNext');
+  railTotal.textContent = String(total).padStart(2,'0');
+
+  for(let i=0;i<total;i++){
+    const d = document.createElement('div');
+    d.className = 'dot' + (i===0?' active':'');
+    d.addEventListener('click', ()=>goTo(i));
+    dotsWrap.appendChild(d);
+  }
+  const dots = dotsWrap.querySelectorAll('.dot');
+
+  let current = 0;
+  function render(){
+    slides.forEach((s,i)=>{
+      s.classList.remove('active','prev');
+      if(i===current) s.classList.add('active');
+      else if(i<current) s.classList.add('prev');
+    });
+    dots.forEach((d,i)=>d.classList.toggle('active', i===current));
+    railNum.textContent = String(current+1).padStart(2,'0');
+    progressFill.style.width = ((current+1)/total*100)+'%';
+    btnPrev.disabled = current===0;
+    btnNext.disabled = current===total-1;
+  }
+  function goTo(i){
+    current = Math.max(0, Math.min(total-1, i));
+    render();
+  }
+  function next(){ if(current<total-1) goTo(current+1); }
+  function prev(){ if(current>0) goTo(current-1); }
+
+  btnPrev.addEventListener('click', prev);
+  btnNext.addEventListener('click', next);
+  document.getElementById('zoneLeft').addEventListener('click', prev);
+  document.getElementById('zoneRight').addEventListener('click', next);
+
+  document.addEventListener('keydown', (e)=>{
+    if(e.key==='ArrowRight' || e.key===' '){ next(); e.preventDefault(); }
+    if(e.key==='ArrowLeft'){ prev(); e.preventDefault(); }
+  });
+
+  let touchX = null;
+  document.addEventListener('touchstart', e=>{ touchX = e.touches[0].clientX; });
+  document.addEventListener('touchend', e=>{
+    if(touchX===null) return;
+    const dx = e.changedTouches[0].clientX - touchX;
+    if(dx > 60) prev();
+    if(dx < -60) next();
+    touchX = null;
+  });
+
+  render();
+
+  /* ---------------- kitchen simulations ---------------- */
+  // Concurrency: one worker, round-robin small increments across 3 tickets
+  let concRunning = false;
+  function runConcurrency(){
+    if(concRunning) return;
+    concRunning = true;
+    const fills = [0,0,0];
+    const fillEls = [document.getElementById('cFill0'),document.getElementById('cFill1'),document.getElementById('cFill2')];
+    const stateEls = [document.getElementById('cState0'),document.getElementById('cState1'),document.getElementById('cState2')];
+    const tickets = document.querySelectorAll('#btnConc').length ? document.querySelectorAll('.slide:nth-of-type(4) .ticket') : [];
+    stateEls.forEach(el=>el.textContent='waiting');
+    let turn = 0;
+    const step = ()=>{
+      tickets.forEach(t=>t.classList.remove('active'));
+      if(tickets[turn]) tickets[turn].classList.add('active');
+      stateEls[turn].textContent = 'cooking';
+      fills[turn] = Math.min(100, fills[turn] + 14);
+      fillEls[turn].style.width = fills[turn]+'%';
+      if(fills[turn] >= 100){ stateEls[turn].textContent = 'plated'; }
+      const allDone = fills.every(f=>f>=100);
+      if(allDone){
+        concRunning = false;
+        tickets.forEach(t=>t.classList.remove('active'));
+        return;
+      }
+      let next = (turn+1)%3;
+      let guard = 0;
+      while(fills[next] >= 100 && guard < 3){ next = (next+1)%3; guard++; }
+      turn = next;
+      setTimeout(step, 260);
+    };
+    step();
+  }
+
+  // Parallelism: all three fill simultaneously
+  let parRunning = false;
+  function runParallelism(){
+    if(parRunning) return;
+    parRunning = true;
+    const fills = [0,0,0];
+    const fillEls = [document.getElementById('pFill0'),document.getElementById('pFill1'),document.getElementById('pFill2')];
+    const stateEls = [document.getElementById('pState0'),document.getElementById('pState1'),document.getElementById('pState2')];
+    stateEls.forEach(el=>el.textContent='cooking');
+    const iv = setInterval(()=>{
+      let done = true;
+      for(let i=0;i<3;i++){
+        fills[i] = Math.min(100, fills[i] + (7 + i*1.5));
+        fillEls[i].style.width = fills[i]+'%';
+        if(fills[i] >= 100) stateEls[i].textContent = 'plated';
+        else done = false;
+      }
+      if(done){ clearInterval(iv); parRunning = false; }
+    }, 180);
+  }
+
+  document.getElementById('btnConc').addEventListener('click', runConcurrency);
+  document.getElementById('btnPar').addEventListener('click', runParallelism);
+})();
+</script>
+</body>
+</html>

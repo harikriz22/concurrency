@@ -1,0 +1,11 @@
+Synchronous Execution : This is the "default" model where one process uses one thread. The biggest drawback is that the thread is blocked whenever it waits for I/O operations (like reading from disk or network calls), meaning no other code can execute until that operation finishes. This leads to unresponsive applications.
+
+
+
+
+
+
+Multithreading : To solve the blocking issue, a process can spawn multiple threads to perform work concurrently. While this can improve performance, it introduces significant complexity. Threads share the same memory space, which often leads to race conditions, the need for mutexes (locking), and difficult-to-debug concurrency issues—factors that lead many developers to describe multithreading as inherently "evil."
+
+
+Multiprocessing: Instead of sharing resources within a single process, multiprocessing runs entirely separate processes, each with its own memory space and resources. This isolation makes it more robust and easier to scale across multiple CPU cores or even different machines (e.g., in distributed computing or brute-force password cracking), as communication is handled via inter-process communication rather than shared memory.

@@ -1,0 +1,13 @@
+Multiprocessing
+
+Say
+
+Let's remove the marker sharing problem.
+
+Instead of one classroom,
+
+create four classrooms.
+
+Each classroom has its own marker.
+
+That is multiprocessing.

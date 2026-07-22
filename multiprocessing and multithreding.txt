@@ -1,0 +1,178 @@
+
+multiprocessing and multithreding and asyncio
+
+Concurrency vs Parallelism
+___________
+
+Concurrency
+
+Managing multiple tasks during the same period of time.
+
+The tasks appear to run together because the CPU switches between them quickly.
+
+Parallelism
+
+Running multiple tasks at exactly the same time.
+
+This requires multiple CPU cores (or processors).
+
+eg: concurrency 
+
+Imagine a restaurant.
+
+There is only one chef.
+
+Three customers order food.
+
+Pasta
+Pizza
+Burger
+
+
+The chef starts cooking the pasta.
+
+While the pasta is boiling, the chef starts preparing the burger.
+
+While the burger is grilling, the chef prepares the pizza dough.
+
+The chef keeps switching between tasks.
+
+
+Only one chef is working.
+
+Nothing is truly happening simultaneously.
+
+But all three dishes make progress.
+
+This is Concurrency.
+
+Parallelism (Three Chefs)
+
+Now imagine there are three chefs.
+
+Chef 1 → Pasta
+
+Chef 2 → Pizza
+
+Chef 3 → Burger
+
+All three dishes are cooked at the same time.
+
+This is Parallelism.
+
+
+
+
+
+
+
+Concurrency
+________
+
+Concurrency means multiple tasks make progress during the same time period.
+
+
+The chef starts cooking Order 1.
+While it's boiling...
+Instead of standing and watching the pot...
+The chef starts preparing Order 2.
+While Order 2 is baking...
+He cuts vegetables for Order 3.
+He keeps switching between tasks.
+
+
+
+why we want concurrency
+
+
+Tasks:
+
+making tea
+
+Programming has the same problem.
+
+Some tasks spend most of their time waiting:
+
+downloading files
+reading databases
+network requests
+user input
+
+Others spend all their time calculating:
+
+image processing
+AI
+encryption
+sorting huge datasets
+
+Python gives different tools for different situations.
+
+Threading
+Multiprocessing
+Asyncio
+
+
+
+
+
+
+1. process vs thread 
+
+A process is an independent running program.
+
+eg : vscode ,python 
+
+Each is its own process
+
+separate memory
+separate variables
+separate resources
+
+
+Another process cannot directly access this memory.
+
+
+eg :
+
+Chrome Process
+
+RAM
+
+Tabs
+Cookies
+Extensions
+
+thread 
+_____
+
+A thread is a worker inside a process.
+
+Chrome Process
+
+Thread 1
+Thread 2
+Thread 3
+Thread 4
+
+
+All threads
+
+share
+
+variables
+memory
+files
+objects
+
+This sharing is both powerful and dangerous.
+
+_________________________________________________________________________
+
+#########Synchronous Execution#############
+
+
+one process one thread
+
+
+
+

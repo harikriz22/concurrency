@@ -1,0 +1,282 @@
+multithreading  
+
+Python provides the threading module.
+
+import threading 
+
+t1= threading.Thread(target=fun,args=()--> Createsthread
+
+t1.start() --> Starts thread
+
+t1.join() --> Wait until finished
+
+What happens if we remove join()?
+
+Main program may finish before the thread completes.
+
+
+Outputs mix together.Why?
+
+Because both threads run concurrently.
+
+is it good ?
+
+sometimes 
+
+but it causes danger because of Race Condition.
+
+
+Race Condition
+
+Two people
+
+One notebook
+
+Both try writing page 10.
+
+Someone overwrites.
+
+
+lock = threading.Lock()
+
+What does it do?
+
+This creates a Lock object.
+
+Think of it as creating a key or a security guard that controls access to a shared resource.
+
+Lock() → Creates a new lock.
+lock → A variable that stores that lock object.
+
+Real-Life Analogy
+________________
+
+Imagine there is only one printer in an office.
+
+Three employees want to print.
+
+Without a lock:
+
+Employee A ----\
+                ---> Printer (Chaos)
+Employee B ----/
+Employee C ----/
+
+Everyone tries to use the printer at the same time.
+
+
+
+With a lock:
+
+Employee A → 🔒 Printer
+
+Employee B → Waiting...
+
+Employee C → Waiting...
+
+Employee A finishes
+
+🔓 Unlock
+
+Employee B starts
+
+
+
+
+gil 
+
+
+What is the GIL?
+
+GIL stands for:
+
+Global Interpreter Lock
+
+Let's break down the name.
+
+Global → There is one GIL per Python interpreter.
+Interpreter → It belongs to the CPython interpreter (the most common Python implementation).
+Lock → It acts like a lock, allowing only one thread at a time to execute Python bytecode.
+
+So:
+
+The GIL is a lock inside CPython that allows only one thread at a time to execute Python bytecode.
+
+Why does Python have the GIL?
+
+Imagine Python has many objects in memory.
+
+a = [1, 2, 3]
+
+or
+
+name = "Hari"
+
+These objects live in memory.
+
+Now imagine two threads try to modify the same object simultaneously.
+
+my_list.append(10)
+
+and
+
+my_list.append(20)
+
+at exactly the same time.
+
+Without proper protection:
+
+Memory could become corrupted.
+Objects could become inconsistent.
+Python might crash.
+
+The GIL simplifies memory management by ensuring only one thread executes Python bytecode at a time.
+
+Whiteboard Analogy (Best for Teaching)
+
+Imagine a classroom.
+
+There are 5 students.
+
+Student A
+
+Student B
+
+Student C
+
+Student D
+
+Student E
+
+There is only one whiteboard.
+
+And only one marker.
+
+🖊️
+
+Whoever has the marker can write.
+
+Everyone else waits.
+
+Timeline
+
+Time →
+
+A writing
+
+B waiting
+
+C waiting
+
+D waiting
+
+E waiting
+
+↓
+
+A gives marker
+
+↓
+
+B writing
+
+↓
+
+B gives marker
+
+↓
+
+C writing
+
+Everyone gets a turn.
+
+But only one student writes at a time.
+
+That marker is the GIL.
+
+How does this relate to Threads?
+
+Suppose you create:
+
+import threading
+
+t1 = threading.Thread(...)
+t2 = threading.Thread(...)
+t3 = threading.Thread(...)
+
+You now have three threads.
+
+Students often think:
+
+"Three threads means three things happen at the same time."
+
+Not in CPython.
+
+Because of the GIL:
+
+Thread A → Running
+
+Thread B → Waiting
+
+Thread C → Waiting
+
+After a tiny amount of time:
+
+Thread A → Waiting
+
+Thread B → Running
+
+Thread C → Waiting
+
+Then:
+
+Thread A → Waiting
+
+Thread B → Waiting
+
+Thread C → Running
+
+Python switches between threads very quickly.
+
+It looks like they are running together.
+
+But only one executes Python bytecode at any instant.
+
+Example
+
+Suppose this function performs a heavy calculation.
+
+def calculate():
+    for i in range(100000000):
+        pass
+
+Now create two threads.
+
+t1 = threading.Thread(target=calculate)
+t2 = threading.Thread(target=calculate)
+
+Students might expect:
+
+CPU Core 1 → Thread 1
+
+CPU Core 2 → Thread 2
+
+But because of the GIL, what actually happens is closer to:
+
+Thread 1
+
+↓
+
+Thread 2
+
+↓
+
+Thread 1
+
+↓
+
+Thread 2
+
+Only one thread executes Python bytecode at a time.
+
+So CPU-heavy work usually doesn't get much faster.
